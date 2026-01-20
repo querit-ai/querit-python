@@ -58,13 +58,13 @@ request = SearchRequest(
 try:
     # Execute search
     response = client.search(request)
-    
+
     # Process results
     for item in response.results:
         print(f"Title: {item.title}")
         print(f"URL: {item.url}")
         print("-" * 50)
-        
+
 except QueritError as e:
     print(f"Search failed: {e}")
 

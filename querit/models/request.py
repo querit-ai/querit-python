@@ -1,3 +1,17 @@
+# Copyright 2025 QUERIT PRIVATE LIMITED
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
 """
 Search request data models and filter definitions.
 
@@ -8,10 +22,9 @@ convert itself into a dictionary representation suitable for API requests.
 """
 
 from dataclasses import dataclass
-from typing import Optional, List, Dict, Any, Union
-from querit.utils import Language
-from querit.utils import Country
+from typing import Any, Dict, List, Optional, Union
 
+from querit.utils import Country, Language
 
 LanguageLike = Union[Language, str]
 CountryLike = Union[Country, str]
@@ -33,8 +46,8 @@ def _normalize_language(lang: LanguageLike) -> str:
     if isinstance(lang, str):
         try:
             return Language(lang).value
-        except ValueError:
-            raise ValueError(f"Unsupported language: {lang}")
+        except ValueError as err:
+            raise ValueError(f"Unsupported language: {lang}") from err
 
     raise TypeError(f"Invalid language type: {type(lang)}")
 
@@ -49,8 +62,8 @@ def _normalize_country(country: CountryLike) -> str:
     if isinstance(country, str):
         try:
             return Country(country).value
-        except ValueError:
-            raise ValueError(f"Unsupported country: {country}")
+        except ValueError as err:
+            raise ValueError(f"Unsupported country: {country}") from err
 
     raise TypeError(f"Invalid country type: {type(country)}")
 

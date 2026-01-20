@@ -1,0 +1,19 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+venv/
+.env
+
+# IDE
+.id*/
+.vs*/
+.co*/
+.tr*/
+.hi*/
+.ba*/
+
+# Build artifacts
+build/
+dist/
+*.egg-info/
