@@ -46,12 +46,16 @@ def main():
         filters=SearchFilters(
             languages=[Language.ENGLISH],
             geo=GeoFilter(countries=[ Country.UNITED_STATES]),
-            sites=SiteFilter(include=["dictionary.cambridge.org"]),
+#             sites=SiteFilter(include=["dictionary.cambridge.org"]),
             time_range="m7",
         ),
     )
 
-    response = client.search(req)
+    try:
+        response = client.search(req)
+    except Exception as e:
+        print(f"An error occurred: {e}")
+        return
 
     for item in response.results:
         print(item.url)

@@ -1,17 +1,3 @@
-# Copyright 2025 QUERIT PRIVATE LIMITED
-#
-# Licensed under the Apache License, Version 2.0 (the "License");
-# you may not use this file except in compliance with the License.
-# You may obtain a copy of the License at
-#
-#     http://www.apache.org/licenses/LICENSE-2.0
-#
-# Unless required by applicable law or agreed to in writing, software
-# distributed under the License is distributed on an "AS IS" BASIS,
-# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-# See the License for the specific language governing permissions and
-# limitations under the License.
-
 """
 HTTP utility functions.
 
@@ -20,18 +6,22 @@ POST requests and map HTTP status codes to domain-specific exceptions.
 """
 
 import json
-from typing import Any, Dict, Optional
-
 import requests
+from requests.adapters import HTTPAdapter
+from requests.exceptions import ChunkedEncodingError
+from typing import Dict, Any, Optional
+from urllib3.util.retry import Retry
+from requests import Session
 
 from ..errors import (
     BadRequestError,
+    UnauthorizedError,
     ForbiddenError,
     RateLimitError,
     ServerError,
-    UnauthorizedError,
 )
 
+_session: Optional[Session] = None
 
 def post_json(
     url: str,
@@ -39,6 +29,7 @@ def post_json(
     payload: Dict[str, Any],
     timeout: float = 30.0,
     proxies: Optional[Dict[str, str]] = None,
+    session: Optional[requests.Session] = None,
 ) -> Dict[str, Any]:
     """
     Send a POST request with a JSON payload and return the parsed response.
@@ -55,6 +46,7 @@ def post_json(
         payload (Dict[str, Any]): JSON-serializable request body.
         timeout (float, optional): Request timeout in seconds. Defaults to 30.0.
         proxies (Optional[Dict[str, str]]): Proxy configuration passed to requests.
+        session (Optional[requests.Session]): Optional requests Session.
 
     Returns:
         Dict[str, Any]: Parsed JSON response body.
@@ -67,15 +59,17 @@ def post_json(
         ServerError: If a timeout occurs or an unexpected status code is returned.
     """
     try:
-        resp = requests.post(
+        resp = session.post(
             url,
             headers=headers,
             data=json.dumps(payload),
             timeout=timeout,
             proxies=proxies,
         )
-    except requests.exceptions.Timeout as err:
-        raise ServerError("Request timeout") from err
+    except ChunkedEncodingError:
+        raise ServerError("Chunked encoding error after retry")
+    except requests.exceptions.Timeout:
+        raise ServerError("Request timeout")
 
     if resp.status_code == 200:
         return resp.json()
