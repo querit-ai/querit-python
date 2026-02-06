@@ -7,9 +7,11 @@ structured responses.
 """
 from typing import Dict, Any, Optional
 
+import requests
+
 from querit.models.request import SearchRequest
 from querit.models.response import SearchResponse
-from querit.utils.http import post_json
+from querit.utils.http import post_json, get_session
 
 
 class QueritClient:
@@ -24,6 +26,7 @@ class QueritClient:
         base_path: str = "/v1/search",
         timeout: float = 60.0,
         proxies: Optional[Dict[str, str]] = None,
+        session: Optional[requests.Session] = None,
     ):
         """Initializes the QueritClient.
 
@@ -42,6 +45,21 @@ class QueritClient:
                     "http": "http://127.0.0.1:7890",
                     "https": "http://127.0.0.1:7890"
                 }
+            session (requests.Session, optional):
+                If provided, this session will be used for all HTTP requests
+                made by this client.
+                If omitted, the client uses a shared global session created
+                internally with the following default behavior:
+                - Connection pooling enabled (up to 10 concurrent connections)
+                - Automatic retries enabled for network-level failures only
+                  (connection errors and read timeouts)
+                - At most 1 retry attempt per request
+                - POST requests are allowed to be retried
+                - No automatic retries based on HTTP response status codes
+                - Short exponential backoff between retries
+                  (starting at approximately 50ms)
+                - HTTP error responses are not raised automatically and are
+                  handled explicitly by the client
 
         Raises:
             ValueError:
@@ -53,6 +71,7 @@ class QueritClient:
         self.url = base_url.rstrip("/") + base_path
         self.timeout = timeout
         self.proxies = proxies
+        self.session = session
 
         self.headers = {
             "Authorization": f"Bearer {api_key}",
@@ -80,12 +99,15 @@ class QueritClient:
             response = client.search(req)
         """
 
+        sess = self.session or get_session()
+
         raw = post_json(
             url=self.url,
             headers=self.headers,
             payload=request.to_payload(),
             timeout=self.timeout,
             proxies=self.proxies,
+            session=sess,
         )
 
         return SearchResponse(raw)

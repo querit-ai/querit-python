@@ -7,7 +7,11 @@ POST requests and map HTTP status codes to domain-specific exceptions.
 
 import json
 import requests
+from requests.adapters import HTTPAdapter
+from requests.exceptions import ChunkedEncodingError
 from typing import Dict, Any, Optional
+from urllib3.util.retry import Retry
+from requests import Session
 
 from ..errors import (
     BadRequestError,
@@ -17,6 +21,7 @@ from ..errors import (
     ServerError,
 )
 
+_session: Optional[Session] = None
 
 def post_json(
     url: str,
@@ -24,6 +29,7 @@ def post_json(
     payload: Dict[str, Any],
     timeout: float = 30.0,
     proxies: Optional[Dict[str, str]] = None,
+    session: Optional[requests.Session] = None,
 ) -> Dict[str, Any]:
     """
     Send a POST request with a JSON payload and return the parsed response.
@@ -40,6 +46,7 @@ def post_json(
         payload (Dict[str, Any]): JSON-serializable request body.
         timeout (float, optional): Request timeout in seconds. Defaults to 30.0.
         proxies (Optional[Dict[str, str]]): Proxy configuration passed to requests.
+        session (Optional[requests.Session]): Optional requests Session.
 
     Returns:
         Dict[str, Any]: Parsed JSON response body.
@@ -52,13 +59,15 @@ def post_json(
         ServerError: If a timeout occurs or an unexpected status code is returned.
     """
     try:
-        resp = requests.post(
+        resp = session.post(
             url,
             headers=headers,
             data=json.dumps(payload),
             timeout=timeout,
             proxies=proxies,
         )
+    except ChunkedEncodingError:
+        raise ServerError("Chunked encoding error after retry")
     except requests.exceptions.Timeout:
         raise ServerError("Request timeout")
 
@@ -77,3 +86,40 @@ def post_json(
     raise ServerError(
         f"Unexpected status: {resp.status_code}, body={resp.text}"
     )
+
+def _create_session() -> Session:
+    """
+    Create a requests Session with HTTPAdapter retry configured.
+
+    Retry strategy:
+    - Retry once on connection/read errors
+    - Allow POST retries
+    - Do NOT retry on HTTP status codes (handled explicitly later)
+    """
+    retry = Retry(
+        total=1,
+        connect=1,
+        read=1,
+        status=0,
+        allowed_methods={"POST"},
+        backoff_factor=0.05,
+        raise_on_status=False,
+    )
+
+    adapter = HTTPAdapter(
+        pool_connections=10,
+        pool_maxsize=10,
+        max_retries=retry,
+    )
+
+    session = requests.Session()
+    session.mount("http://", adapter)
+    session.mount("https://", adapter)
+
+    return session
+
+def get_session() -> requests.Session:
+    global _session
+    if _session is None:
+        _session = _create_session()
+    return _session

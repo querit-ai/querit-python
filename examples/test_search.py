@@ -23,7 +23,7 @@ def main():
     with query parameters and filters, sends the request to the Querit
     Search API, and prints URLs from the search results.
     """
-    client = QueritClient(api_key="YOUR_API_KEY")
+    client = QueritClient(api_key="querit-sk-He0EyzZtlUaSdara-NcVkvUqwcg1ZihqW3dECSeFu0DmXAHF2")
 
     req = SearchRequest(
         query="chat",
@@ -36,7 +36,11 @@ def main():
         ),
     )
 
-    response = client.search(req)
+    try:
+        response = client.search(req)
+    except Exception as e:
+        print(f"An error occurred: {e}")
+        return
 
     for item in response.results:
         print(item.url)
