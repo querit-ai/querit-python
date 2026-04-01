@@ -86,3 +86,49 @@ def post_json(
     raise ServerError(
         f"Unexpected status: {resp.status_code}, body={resp.text}"
     )
+
+def _create_session() -> Session:
+    """
+    Create a requests Session with HTTPAdapter retry configured.
+
+    Retry strategy:
+    - Retry once on connection/read errors
+    - Allow POST retries
+    - Do NOT retry on HTTP status codes (handled explicitly later)
+    """
+    retry = Retry(
+        total=1,
+        connect=1,
+        read=1,
+        status=0,
+        allowed_methods={"POST"},
+        backoff_factor=0.05,
+        raise_on_status=False,
+    )
+
+    adapter = HTTPAdapter(
+        pool_connections=10,
+        pool_maxsize=10,
+        max_retries=retry,
+    )
+
+    session = requests.Session()
+    session.mount("http://", adapter)
+    session.mount("https://", adapter)
+
+    return session
+
+def get_session() -> requests.Session:
+    """
+        Get a shared global ``requests.Session`` instance.
+
+        This function lazily creates and returns a singleton ``requests.Session``
+        used by the Querit client when no custom session is provided.
+
+        Returns:
+            requests.Session: A shared, preconfigured HTTP session.
+        """
+    global _session
+    if _session is None:
+        _session = _create_session()
+    return _session
