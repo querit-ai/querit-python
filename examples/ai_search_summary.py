@@ -205,8 +205,11 @@ def generate_search_queries(
     model: str,
     user_question: str,
     chat_history: str = "",
-) -> List[str]:
-    """Call the LLM to convert *user_question* into search keywords."""
+) -> tuple[List[str], int, int]:
+    """Call the LLM to convert *user_question* into search keywords.
+
+    Returns a tuple of (queries, prompt_tokens, completion_tokens).
+    """
     prompt = _QUERY_GEN_PROMPT.format(chat_history=chat_history, question=user_question)
     response = client.chat.completions.create(
         model=model,
@@ -215,7 +218,10 @@ def generate_search_queries(
     )
     raw = response.choices[0].message.content or ""
     queries = extract_search_queries(raw)
-    return queries
+    usage = response.usage
+    prompt_tokens = usage.prompt_tokens if usage else 0
+    completion_tokens = usage.completion_tokens if usage else 0
+    return queries, prompt_tokens, completion_tokens
 
 
 # ---------------------------------------------------------------------------
@@ -265,8 +271,11 @@ def synthesize_answer(
     model: str,
     user_question: str,
     search_results: List[dict],
-) -> str:
-    """Ask the LLM to produce a cited answer from search results."""
+) -> tuple[str, int, int]:
+    """Ask the LLM to produce a cited answer from search results.
+
+    Returns a tuple of (answer, prompt_tokens, completion_tokens).
+    """
     # Format as numbered references matching Cherry Studio's REFERENCE_PROMPT style.
     # The LLM is instructed to cite via [number] inline.
     references_text = "\n\n".join(
@@ -284,7 +293,10 @@ def synthesize_answer(
         model=model,
         messages=[{"role": "user", "content": prompt}],
     )
-    return response.choices[0].message.content or ""
+    usage = response.usage
+    prompt_tokens = usage.prompt_tokens if usage else 0
+    completion_tokens = usage.completion_tokens if usage else 0
+    return response.choices[0].message.content or "", prompt_tokens, completion_tokens
 
 
 # ---------------------------------------------------------------------------
@@ -312,7 +324,9 @@ def ai_search_and_summarize(user_question: str) -> None:
 
     # --- Step 1: generate search queries ---
     print("Step 1 – Generating search queries …")
-    queries = generate_search_queries(ai_client, openai_model, user_question)
+    queries, gen_prompt_tokens, gen_completion_tokens = generate_search_queries(
+        ai_client, openai_model, user_question
+    )
 
     if not queries:
         print("No search required for this question.\n")
@@ -323,6 +337,11 @@ def ai_search_and_summarize(user_question: str) -> None:
         )
         print("Answer:\n")
         print(response.choices[0].message.content)
+        usage = response.usage
+        total_prompt = gen_prompt_tokens + (usage.prompt_tokens if usage else 0)
+        total_completion = gen_completion_tokens + (usage.completion_tokens if usage else 0)
+        print(f"\n{'─'*60}")
+        print(f"Statistics: searches=0  tokens(prompt={total_prompt}, completion={total_completion}, total={total_prompt + total_completion})")
         return
 
     print(f"Extracted {len(queries)} query(ies): {queries}\n")
@@ -330,6 +349,7 @@ def ai_search_and_summarize(user_question: str) -> None:
     # --- Step 2: execute searches ---
     print("Step 2 – Searching via Querit …")
     results = run_querit_searches(querit_client, queries, count_per_query=10)
+    search_count = len(queries)
     print(f"Retrieved {len(results)} unique result(s).\n")
     for i, r in enumerate(results):
         print(f"  [{i + 1}] {r['title']}")
@@ -340,11 +360,18 @@ def ai_search_and_summarize(user_question: str) -> None:
 
     # --- Step 3: synthesize answer ---
     print("Step 3 – Synthesizing answer …\n")
-    answer = synthesize_answer(ai_client, openai_model, user_question, results)
+    answer, syn_prompt_tokens, syn_completion_tokens = synthesize_answer(
+        ai_client, openai_model, user_question, results
+    )
 
     print("Answer:\n")
     print(answer)
     print()
+
+    total_prompt = gen_prompt_tokens + syn_prompt_tokens
+    total_completion = gen_completion_tokens + syn_completion_tokens
+    print(f"{'─'*60}")
+    print(f"Statistics: searches={search_count}  tokens(prompt={total_prompt}, completion={total_completion}, total={total_prompt + total_completion})")
 
 
 if __name__ == "__main__":

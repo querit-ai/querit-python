@@ -191,14 +191,19 @@ def ai_search_tool_use(user_question: str) -> None:
         tool_choice="auto",
     )
     assistant_msg = round1.choices[0].message
+    total_prompt_tokens = round1.usage.prompt_tokens if round1.usage else 0
+    total_completion_tokens = round1.usage.completion_tokens if round1.usage else 0
 
     # No tool calls → model answered directly, nothing left to do.
     if not assistant_msg.tool_calls:
         print("\nModel answered directly (no search needed):\n")
         print(assistant_msg.content)
+        print(f"\n{'─'*60}")
+        print(f"Statistics: searches=0  tokens(prompt={total_prompt_tokens}, completion={total_completion_tokens}, total={total_prompt_tokens + total_completion_tokens})")
         return
 
     print(f"Model requested {len(assistant_msg.tool_calls)} search(es):\n")
+    search_count = len(assistant_msg.tool_calls)
 
     # Append the assistant turn (with tool_calls) to the message history.
     messages.append(assistant_msg)  # type: ignore[arg-type]
@@ -254,10 +259,16 @@ def ai_search_tool_use(user_question: str) -> None:
         model=openai_model,
         messages=messages,
     )
+    if round2.usage:
+        total_prompt_tokens += round2.usage.prompt_tokens
+        total_completion_tokens += round2.usage.completion_tokens
 
     print("Answer:\n")
     print(round2.choices[0].message.content)
     print()
+
+    print(f"{'─'*60}")
+    print(f"Statistics: searches={search_count}  tokens(prompt={total_prompt_tokens}, completion={total_completion_tokens}, total={total_prompt_tokens + total_completion_tokens})")
 
 
 if __name__ == "__main__":
