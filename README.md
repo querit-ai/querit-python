@@ -98,6 +98,33 @@ The SDK provides specific error classes:
 3. Handle rate limiting by implementing retry logic
 4. Cache frequently used search results when possible
 
+## AI-Powered Search Examples
+
+These examples combine Querit with an OpenAI-compatible LLM to answer questions using live web search results. Both require the following environment variables:
+
+```bash
+export OPENAI_API_KEY="sk-..."
+export OPENAI_BASE_URL="https://api.deepseek.com/v1"   # or any OpenAI-compatible endpoint
+export OPENAI_MODEL="deepseek-chat"                    # or gpt-4o-mini, qwen-max, etc.
+export QUERIT_API_KEY="qr-..."
+```
+
+### AI Search with Summarization (`ai_search_summary.py`)
+
+A three-step pipeline: the LLM first rephrases the question into optimized search keywords (XML output), then Querit executes the searches, and finally the LLM synthesizes a cited answer from the results.
+
+```bash
+python examples/ai_search_summary.py "GDP Data of Laos for the Past 10 Years"
+```
+
+### AI Search via Tool Use (`ai_search_tool_use.py`)
+
+Lets the LLM drive the search through function calling (tool use). In Round 1 the model decides which queries to run; in Round 2 it synthesizes a final answer from the retrieved results. No XML parsing needed — the model controls query decomposition autonomously and can issue multiple parallel searches in a single turn.
+
+```bash
+python examples/ai_search_tool_use.py "GDP Data of Laos for the Past 10 Years"
+```
+
 For more examples, see the `examples/` directory in this repository.
 
 # Contact
