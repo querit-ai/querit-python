@@ -18,7 +18,17 @@ Querit Search API usage example.
 This module demonstrates how to use QueritClient to construct a
 SearchRequest with filters (language, geo, site, time range) and
 execute a search request, then iterate over the returned results.
+
+Required environment variables:
+    QUERIT_API_KEY  – API key for the Querit Search API.
+
+Usage:
+    export QUERIT_API_KEY="your_api_key_here"
+    python examples/test_search.py
 """
+
+import os
+import sys
 
 from querit import QueritClient
 from querit.models.request import (
@@ -38,7 +48,11 @@ def main():
     with query parameters and filters, sends the request to the Querit
     Search API, and prints URLs from the search results.
     """
-    client = QueritClient(api_key="YOUR_API_KEY")
+    api_key = os.environ.get("QUERIT_API_KEY")
+    if not api_key:
+        sys.exit("Error: QUERIT_API_KEY environment variable is not set.")
+
+    client = QueritClient(api_key=api_key)
 
     req = SearchRequest(
         query="chat",
